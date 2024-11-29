@@ -1,94 +1,109 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { useFormContext } from "../App";
 import { DevTool } from "@hookform/devtools";
 import ReactDOM from "react-dom";
+import { toast } from "react-toastify";
 
 const FormPreview = ({ onClose }) => {
   const { formElements } = useFormContext();
   const {
     handleSubmit,
     register,
-    formState: { errors },
-    control,
     watch,
     setValue,
+    formState: { errors },
+    control,
   } = useForm();
 
-  // const onSubmit = (data) => {
-  //   console.log({ data: { id: formElements[0].uniqueId, formData: data } });
-  // };
-  // Helper Functions for Custom Scripts
-  const customJSHelpers = {
-    setValue: (fieldName, value) => setValue(fieldName, value),
-    getValue: (fieldName) => watch(fieldName),
-    showField: (fieldName) => toggleFieldVisibility(fieldName, true),
-    hideField: (fieldName) => toggleFieldVisibility(fieldName, false),
-    disableField: (fieldName) => toggleFieldState(fieldName, true),
-    enableField: (fieldName) => toggleFieldState(fieldName, false),
-  };
+  const watchedValues = watch();
 
-  const toggleFieldVisibility = (fieldName, isVisible) => {
-    const field = document.querySelector(`[name="${fieldName}"]`);
-    if (field) {
-      field.parentElement.style.display = isVisible ? "block" : "none";
-    }
-  };
+  // Helper: Check conditions for conditional rendering
+  const evaluateConditions = (conditions, conjunction, watchedValues) => {
+    if (!conditions.length) return true;
 
-  const toggleFieldState = (fieldName, isDisabled) => {
-    const field = document.querySelector(`[name="${fieldName}"]`);
-    if (field) {
-      field.disabled = isDisabled;
-    }
-  };
+    const results = conditions.map(({ when, is, value }) => {
+      const fieldValue = watchedValues[when?.value];
+      const compareValue = value?.value;
 
-  // Execute Custom JS Script
-  const executeCustomScript = (script, event) => {
-    try {
-      const allValues = watch();
-      const fieldName = event.target.name;
-      const fieldValue = customJSHelpers.getValue(fieldName);
-
-      if (script) {
-        const customFunction = new Function(
-          "event",
-          "formElements",
-          "fieldValue",
-          "allValues",
-          "helpers",
-          script
-        );
-        customFunction(
-          event,
-          formElements,
-          fieldValue,
-          allValues,
-          customJSHelpers
-        );
+      switch (is?.value) {
+        case "=":
+          return fieldValue === compareValue;
+        case ">":
+          return fieldValue > compareValue;
+        case "<":
+          return fieldValue < compareValue;
+        default:
+          return false;
       }
-    } catch (error) {
-      console.error("Error executing custom JS script:", error);
+    });
+
+    // Evaluate conjunction ('all' or 'any')
+    return conjunction === "all"
+      ? results.every(Boolean)
+      : results.some(Boolean);
+  };
+
+  // Execute custom JavaScript
+  const executeCustomJs = (event, script, formElements) => {
+    try {
+      const helper = {
+        // getValue["uniqueId"]
+        getValue: watchedValues,
+        form: formElements || [],
+        // setValue(uid,val)
+        toast,
+        setValue,
+        event,
+        currentElement: event?.target || null,
+        reset: (uniqueIds) => {
+          if (Array.isArray(uniqueIds)) {
+            uniqueIds.forEach((id) => setValue(id, ""));
+          }
+        },
+        resetAll: () => reset(),
+        setStyle: (id, styles) => {
+          const element = document.querySelector(id);
+          if (element) Object.assign(element.style, styles);
+        },
+      };
+
+      const customFunction = new Function("helper", script);
+      customFunction(helper);
+    } catch (err) {
+      console.error("Error executing custom JS:", err.message || err);
     }
   };
 
-  // Lifecycle Hook: Handle Form Load
+  // handle onload custom JS execution
+  // useEffect(() => {
+  //   formElements.forEach((element) => {
+  //     const { customJs: { triggerPoint, customScript } = {} } = element;
+
+  //     if (triggerPoint?.value === "onload" && customScript?.value) {
+  //       executeCustomJs(null, customScript.value, formElements);
+  //     }
+  //   });
+  // }, [formElements, watchedValues]);
+
   useEffect(() => {
-    console.log("Form Loaded:", formElements);
     formElements.forEach((element) => {
-      const { customJs } = element;
-      if (customJs?.triggerPoint?.value === "onLoad") {
-        executeCustomScript(customJs.customScript.value, {});
+      const { customJs = {} } = element;
+
+      // trigger point onload
+      if (customJs?.triggerPoint?.value === "onload") {
+        executeCustomJs(
+          // event object not required for onload
+          null,
+          customJs.customScript?.value,
+          formElements
+        );
       }
     });
   }, [formElements]);
 
-  const handleSubmitWrapper = (data) => {
-    console.log("Form Data Submitted:", data);
-    const enrichedData = {
-      id: formElements[0].uniqueId,
-      formData: data,
-    };
-    console.log({ enrichedData });
+  const onSubmit = (data) => {
+    console.log("Submitted Data:", data);
   };
 
   return (
@@ -98,147 +113,233 @@ const FormPreview = ({ onClose }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded shadow-lg w-4/5 h-5/6">
             <h2 className="text-lg font-bold mb-4">Form Preview</h2>
-            <form
-              className="h-[90%]"
-              onSubmit={handleSubmit(handleSubmitWrapper)}
-            >
+            <form className="h-[90%]" onSubmit={handleSubmit(onSubmit)}>
               <div className="flex flex-col justify-between h-full">
                 {/* form elements */}
                 <div>
                   {formElements.map((element) => {
                     const {
                       uniqueId,
+                      type,
+                      inputType,
                       displaySettings = {},
-                      styleSettings = {},
+                      validationSettings = {},
                       conditionalSettings = {},
+                      customJs = {},
+                      dataSettings = {},
                     } = element;
 
                     const {
-                      label: { value: label },
-                      description,
-                      descriptionPosition = { value: "bottom" },
-                      labelPosition = { value: "top" },
-                      hideLabel = { value: false },
-                      required = { value: false },
-                      prefix = { value: "" },
-                      suffix = { value: "" },
+                      label: { value: label } = {},
+                      placeholder: { value: placeholder } = {},
+                      required: { value: required } = {},
+                      hidden: { value: hidden } = {},
+                      description: { value: description } = {},
+                      descriptionPosition: { value: descriptionPosition } = {},
+                      labelPosition: { value: labelPosition } = {},
                     } = displaySettings;
 
-                    const {
-                      show: { value: hideOrShow = true },
-                      conjunction: { value: conjunctionValue = "all" },
-                      conditions = [],
-                    } = conditionalSettings;
+                    const { minLength, maxLength, regex } = validationSettings;
 
-                    const watchedValues = watch();
+                    // Evaluate if the field should be displayed
+                    const shouldDisplay = evaluateConditions(
+                      conditionalSettings.conditions || [],
+                      conditionalSettings.conjunction?.value,
+                      watchedValues
+                    );
+                    if (hidden || !shouldDisplay) return null;
 
-                    let shouldDisplay = hideOrShow;
-
-                    if (conditions.length > 0) {
-                      shouldDisplay = conditions[
-                        conjunctionValue === "all" ? "every" : "some"
-                      ]((condition) => {
-                        const { when, is, value } = condition;
-                        const whenValue = watchedValues[when?.value];
-                        const conditionValue = value?.value;
-
-                        console.log("Condition Evaluation:", {
-                          when: when?.value,
-                          is: is.value,
-                          value: value?.value,
-                          whenValue,
-                        });
-
-                        switch (is.value) {
-                          case "=":
-                            return whenValue === conditionValue;
-                          case ">":
-                            return whenValue > conditionValue;
-                          case "<":
-                            return whenValue < conditionValue;
-                          default:
-                            console.warn("Unsupported operator:", is.value);
-                            return false;
-                        }
-                      });
+                    // Event handlers for custom JavaScript
+                    const eventHandlers = {};
+                    if (
+                      customJs?.triggerPoint?.value &&
+                      customJs.triggerPoint.value !== "onload"
+                    ) {
+                      eventHandlers[customJs.triggerPoint.value] = (event) =>
+                        executeCustomJs(
+                          event,
+                          customJs.customScript?.value,
+                          formElements
+                        );
                     }
 
-                    if (!hideOrShow || !shouldDisplay) return null;
+                    // Memoize filtered options for case of data settings, element has a parent
+                    const filteredOptions = useMemo(() => {
+                      if (
+                        dataSettings.parent?.value &&
+                        dataSettings.selectParent?.value
+                      ) {
+                        return dataSettings.optionList?.options.filter(
+                          (opt) =>
+                            opt.parentValue ===
+                            watchedValues[dataSettings.selectParent.value]
+                        );
+                      }
+                      return dataSettings.optionList?.options || [];
+                    }, [
+                      watchedValues[dataSettings.selectParent?.value],
+                      dataSettings,
+                    ]);
+
+                    // Set default value for dependent dropdowns
+                    useEffect(() => {
+                      if (
+                        dataSettings.parent?.value &&
+                        filteredOptions?.length &&
+                        dataSettings.selectParent?.value &&
+                        watchedValues[uniqueId] !== filteredOptions[0]?.value
+                      ) {
+                        console.log(uniqueId, filteredOptions[0]);
+                        setValue(uniqueId, filteredOptions[0].value);
+                      }
+                    }, [
+                      // Stable filtered options
+                      filteredOptions,
+                      // Only trigger if parent value changes
+                      watchedValues[dataSettings.selectParent?.value],
+                      dataSettings,
+                      setValue,
+                      uniqueId,
+                    ]);
 
                     return (
                       <div
                         key={uniqueId}
-                        className={`mb-4 ${
-                          descriptionPosition.value.toLowerCase() === "top"
-                            ? "flex flex-col-reverse"
-                            : "flex flex-col"
-                        }`}
-                        style={{
-                          width: `${styleSettings.width.value}${styleSettings.widthUnit.value}`,
-                        }}
+                        id={`${uniqueId}-container`}
+                        className="mb-4"
                       >
-                        {/* Elements */}
-                        <div
-                          className={`flex ${
-                            labelPosition.value.toLowerCase() === "right"
-                              ? "flex-row-reverse items-center gap-4"
-                              : labelPosition.value.toLowerCase() === "bottom"
-                              ? "flex-col-reverse"
-                              : labelPosition.value.toLowerCase() === "left"
-                              ? "items-center gap-4"
-                              : "flex-col"
-                          }`}
-                        >
-                          {/* label */}
-                          {!hideLabel.value && (
-                            <label>
-                              {label}
-                              {required.value && (
-                                <span className="ml-1 text-red-600">*</span>
-                              )}
-                            </label>
-                          )}
-                          <>
-                            {/* prefix */}
-                            <div className="flex w-full">
-                              {prefix.value ? (
-                                <input
-                                  type="text"
-                                  className={`w-12  bg-stone-50 `}
-                                  value={prefix.value}
-                                  readOnly
-                                />
-                              ) : null}
-                              {/* Element */}
-                              <GeneratePreviewElements
-                                element={element}
-                                errors={errors}
-                                register={register}
-                                executeCustomJs={executeCustomJs}
-                              />
-                              {/* Suffix */}
-                              {suffix.value ? (
-                                <input
-                                  type="text"
-                                  className={`w-12  bg-stone-50 `}
-                                  value={suffix.value}
-                                  readOnly
-                                />
-                              ) : null}
-                            </div>
-                            {/* Error */}
-                            {errors[label] && (
-                              <span className="text-red-500 text-sm">
-                                {errors[label].message}
-                              </span>
+                        {/* Label */}
+                        {!displaySettings.hideLabel?.value && (
+                          <label
+                            id={`${uniqueId}-label`}
+                            className={`${
+                              labelPosition === "left"
+                                ? "inline-block mr-2"
+                                : "block"
+                            } font-medium`}
+                          >
+                            {label}
+                            {required && (
+                              <span className="text-red-500"> *</span>
                             )}
-                          </>
-                        </div>
+                          </label>
+                        )}
+                        {/* Input Types */}
+                        {type === "input" && (
+                          <input
+                            {...register(uniqueId, {
+                              required: required
+                                ? `${label} is required.`
+                                : false,
+                              ...(minLength && {
+                                minLength: {
+                                  value: minLength.value,
+                                  message: `Minimum length is ${minLength.value}`,
+                                },
+                              }),
+                              ...(maxLength && {
+                                maxLength: {
+                                  value: maxLength.value,
+                                  message: `Maximum length is ${maxLength.value}`,
+                                },
+                              }),
+                              ...(regex?.value && {
+                                pattern: {
+                                  value: new RegExp(regex.value),
+                                  message: `Invalid format.`,
+                                },
+                              }),
+                            })}
+                            id={uniqueId}
+                            type={inputType || "text"}
+                            placeholder={placeholder}
+                            className="w-full bg-white text-black border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            {...eventHandlers}
+                          />
+                        )}
+                        {type === "button" && (
+                          <button
+                            {...register(uniqueId, {
+                              required: required
+                                ? `${label} is required.`
+                                : false,
+                              ...(minLength && {
+                                minLength: {
+                                  value: minLength.value,
+                                  message: `Minimum length is ${minLength.value}`,
+                                },
+                              }),
+                              ...(maxLength && {
+                                maxLength: {
+                                  value: maxLength.value,
+                                  message: `Maximum length is ${maxLength.value}`,
+                                },
+                              }),
+                              ...(regex?.value && {
+                                pattern: {
+                                  value: new RegExp(regex.value),
+                                  message: `Invalid format.`,
+                                },
+                              }),
+                            })}
+                            type="button"
+                            id={uniqueId}
+                            className=" border rounded-md p-2 hover:outline-none hover:ring-2 hover:ring-blue-500"
+                            {...eventHandlers}
+                          >
+                            {label}
+                          </button>
+                        )}
+                        {type === "select" && (
+                          <select
+                            id={uniqueId}
+                            {...register(uniqueId, {
+                              required: required
+                                ? `${label} is required.`
+                                : false,
+                            })}
+                            multiple={
+                              displaySettings.multiple.value == "true"
+                                ? true
+                                : false
+                            }
+                            defaultValue={
+                              displaySettings.multiple.value === "true"
+                                ? []
+                                : ""
+                            }
+                            className="w-full bg-white text-black border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            {...eventHandlers}
+                          >
+                            <option value="" disabled>
+                              {placeholder || "Select an option"}
+                            </option>
+                            {filteredOptions?.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                         {/* Description */}
                         {description && (
-                          <p className="text-gray-500 text-sm">
-                            {description.value}
-                          </p>
+                          <div
+                            id={`${uniqueId}-description`}
+                            className={`text-sm ${
+                              descriptionPosition === "top" ? "mb-2" : "mt-2"
+                            }`}
+                          >
+                            {description}
+                          </div>
+                        )}
+                        {/* Error */}
+                        {errors[uniqueId] && (
+                          <div
+                            id={`${uniqueId}-error`}
+                            className="text-red-500 text-sm mt-1"
+                          >
+                            {errors[uniqueId].message}
+                          </div>
                         )}
                       </div>
                     );
@@ -268,206 +369,6 @@ const FormPreview = ({ onClose }) => {
       )}
     </>
   );
-};
-
-const GeneratePreviewElements = ({
-  element,
-  register,
-  errors,
-  executeCustomJs,
-}) => {
-  const { formElements } = useFormContext();
-  const { watch } = useForm();
-
-  const {
-    type = "input",
-    inputType = "text",
-    displaySettings = {},
-    validationSettings = {},
-    styleSettings = {},
-    customJs = {},
-    uniqueId,
-  } = element;
-  const {
-    label: { value: label },
-    placeholder = { value: "" },
-    required = { value: false },
-    hidden = { value: false },
-  } = displaySettings;
-
-  const { optionList, optionList: { options = "" } = {} } =
-    element?.dataSettings || {};
-
-  const { triggerPoint, customScript } = customJs;
-
-  // const handleCustomJs = (event) => {
-  //   console.log("Custom Script:", customScript.value);
-
-  //   if (customScript.value) {
-  //     try {
-  //       const fieldValue = watch(label) || "";
-  //       console.log(`Value for ${label}:`, fieldValue);
-  //       console.log(`Custom JS triggered. Value for ${label}:`, fieldValue);
-  //       const script = new Function(
-  //         "event",
-  //         "formElements",
-  //         "fieldValue",
-  //         "allValues",
-  //         customScript.value
-  //       );
-  //       script(event, formElements, fieldValue);
-  //     } catch (error) {
-  //       console.error("Error executing custom JS:", error);
-  //     }
-  //   }
-  // };
-
-  // Defining event handlers dynamically based on triggerPoint
-  const eventHandlers = {
-    ...(triggerPoint.value === "onChange" && {
-      onChange: (event) =>
-        executeCustomScript(customJs.customScript.value, event),
-    }),
-    ...(triggerPoint.value === "onClick" && {
-      onClick: (event) =>
-        executeCustomScript(customJs.customScript.value, event),
-    }),
-    ...(triggerPoint.value === "onBlur" && {
-      onBlur: (event) =>
-        executeCustomScript(customJs.customScript.value, event),
-    }),
-  };
-
-  switch (type) {
-    case "input":
-      return (
-        <>
-          {inputType != "text" &&
-          inputType != "number" &&
-          element.inputType != "email" ? (
-            <input
-              defaultValue=""
-              type={optionList?.value || "date"}
-              {...register(label, {
-                required: required.value ? `${label} is required.` : false,
-              })}
-              className={`w-full border px-2 py-1 rounded ${
-                hidden.value ? "hidden" : ""
-              }`}
-            />
-          ) : (
-            <input
-              defaultValue=""
-              type={inputType}
-              placeholder={placeholder.value}
-              {...register(label, {
-                required: required.value ? `${label} is required.` : false,
-                ...(validationSettings.minLength?.value && {
-                  minLength: {
-                    value: validationSettings.minLength.value,
-                    message: `Minimum length is ${validationSettings.minLength.value}.`,
-                  },
-                }),
-                ...(validationSettings.maxLength?.value && {
-                  maxLength: {
-                    value: validationSettings.maxLength.value,
-                    message: `Maximum length is ${validationSettings.maxLength.value}.`,
-                  },
-                }),
-                ...(validationSettings.regex?.value && {
-                  pattern: {
-                    value: new RegExp(validationSettings.regex.value),
-                    message: `Format of regular expression not matched [${validationSettings.regex.value}].`,
-                  },
-                }),
-              })}
-              className={`w-full border px-2 py-1 rounded ${
-                hidden.value ? "hidden" : ""
-              }`}
-              {...eventHandlers}
-            />
-          )}
-        </>
-      );
-    case "textArea":
-      return (
-        <>
-          <textarea
-            defaultValue=""
-            type={type}
-            placeholder={placeholder.value}
-            {...register(label, {
-              required: required.value ? `${label} is required.` : false,
-              ...(validationSettings.minLength?.value && {
-                minLength: {
-                  value: validationSettings.minLength.value,
-                  message: `Minimum length is ${validationSettings.minLength.value}.`,
-                },
-              }),
-              ...(validationSettings.maxLength?.value && {
-                maxLength: {
-                  value: validationSettings.maxLength.value,
-                  message: `Maximum length is ${validationSettings.maxLength.value}.`,
-                },
-              }),
-              ...(validationSettings.regex?.value && {
-                pattern: {
-                  value: new RegExp(validationSettings.regex.value),
-                  message: `Format of regular expression not matched [${validationSettings.regex.value}].`,
-                },
-              }),
-            })}
-            className={`w-full border px-2 py-1 rounded ${
-              hidden.value ? "hidden" : ""
-            }`}
-            {...eventHandlers}
-          />
-        </>
-      );
-
-    case "checkboxGroup":
-      return (
-        <>
-          {options?.map((option, index) => (
-            <div key={index} className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                value={option.value}
-                {...register(label, {
-                  required: required.value ? `${label} is required.` : false,
-                })}
-                className="checkbox disabled:bg-slate-100"
-                {...eventHandlers}
-              />
-              <label className="text-sm font-normal">{option.label}</label>
-            </div>
-          ))}
-        </>
-      );
-
-    case "select":
-      return (
-        <select
-          {...register(label, {
-            required: required.value ? `${label} is required.` : false,
-          })}
-          className={`w-full border px-2 py-1 rounded ${
-            hidden.value ? "hidden" : ""
-          }`}
-          defaultValue=""
-          {...eventHandlers}
-        >
-          <option value="" disabled>
-            Select
-          </option>
-          {options.map((opt, id) => (
-            <option value={opt.value} key={id}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      );
-  }
 };
 
 export default FormPreview;

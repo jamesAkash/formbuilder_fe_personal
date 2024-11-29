@@ -1,5 +1,6 @@
 import {
   BoxIcon,
+  ButtonIcon,
   CalendarIcon,
   ContainerIcon,
   EnvelopeClosedIcon,
@@ -17,23 +18,95 @@ const commonJsEvents = {
     label: "Event",
     dependent: false,
     options: [
+      { value: "onload", label: "onload" },
       { value: "onChange", label: "Change" },
       { value: "onClick", label: "Click" },
       { value: "onBlur", label: "blur" },
+      { value: "onKeyUp ", label: "onKeyUp " },
+      { value: "onKeyDown ", label: "onKeyDown " },
+      { value: "onFocus ", label: "onFocus " },
     ],
   },
-  // info:{
-  //   type:"collapsible",
-  //   label:"Guide",
-  //   onclick:()=>{setValue(!show)},
+  info: {
+    key: "info",
+    type: "info",
+    show: false,
+    behavior: "inline-block",
+    label: "Guide",
+    content: `<div class="overflow-x-auto">
+  <table class="min-w-full table-auto border-collapse text-sm">
+    <thead class="bg-gray-800 text-white">
+      <tr>
+        <th class="px-4 py-2 border border-gray-300 text-left">Helper</th>
+        <th class="px-4 py-2 border border-gray-300 text-left">Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="px-4 py-2 border border-gray-300 text-green-300">form</td>
+        <td class="px-4 py-2 border border-gray-300">It is the entire form object.</td>
+      </tr>
+      <tr>
+        <td class="px-4 py-2 border border-gray-300 text-green-300">event</td>
+        <td class="px-4 py-2 border border-gray-300">It is the current event of the current element.</td>
+      </tr>
+      <tr>
+        <td class="px-4 py-2 border border-gray-300 text-green-300">currentElement</td>
+        <td class="px-4 py-2 border border-gray-300">Returns the current element.</td>
+      </tr>
+      <tr>
+        <td class="px-4 py-2 border border-gray-300 text-green-300">getValue</td>
+        <td class="px-4 py-2 border border-gray-300">Gets the value of the targeted element. <br/> Usage: getValue["idOfTheElement"]</td>
+      </tr>
+      <tr>
+        <td class="px-4 py-2 border border-gray-300 text-green-300">setValue</td>
+        <td class="px-4 py-2 border border-gray-300">Sets the value of the targeted element. <br/> Usage: setValue("idOfTheElement", value)</td>
+      </tr>
+      <tr>
+        <td class="px-4 py-2 border border-gray-300 text-green-300">reset</td>
+        <td class="px-4 py-2 border border-gray-300">Resets the value of targeted elements. <br/> Usage: reset(["id-1", "id-2"])</td>
+      </tr>
+      <tr>
+        <td class="px-4 py-2 border border-gray-300 text-green-300">resetAll</td>
+        <td class="px-4 py-2 border border-gray-300">Resets all the form values. <br/> Usage: resetAll()</td>
+      </tr>
+      <tr>
+        <td class="px-4 py-2 border border-gray-300 text-green-300">toast</td>
+        <td class="px-4 py-2 border border-gray-300">
+          Can be used to show alerts. <br/>
+          Usage:
+          <ul class="list-inside list-disc">
+            <li>toast.success("Gender has been selected")</li>
+            <li>toast.error("Number not valid")</li>
+            <li>toast.warn("Please note that address needs to be accurate")</li>
+          </ul>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
 
-  //   content:`<p>hello</p>`,
-  // },
+`,
+    action: (key, toggleVisibility) => toggleVisibility(key),
+  },
+
   customScript: {
     value: "",
     type: "codeEditor",
     label: "Enter custom JS here",
   },
+  // reset: {
+  //   type: "button",
+  //   label: "Reset",
+  //   behavior: "inline-block",
+  //   action: (settings, toast) => {
+  //     if (settings?.customJs) {
+  //       settings.customJs.triggerPoint.value = "";
+  //       settings.customJs.customScript.value = "";
+  //       toast.success("Sucessfully reset");
+  //     }
+  //   },
+  // },
 };
 
 const commonDisplaySettings = {
@@ -96,22 +169,22 @@ const commonDisplaySettings = {
     label: "Suffix",
     placeholder: "Enter suffix",
   },
-  displayMask: {
-    value: "",
-    type: "text",
-    label: "Display Mask",
-    placeholder: "Mask",
-  },
-  applyMaskOn: {
-    value: "",
-    type: "select",
-    dependent: false,
-    label: "Apply Mask On",
-    options: [
-      { value: "change", label: "Change" },
-      { value: "blur", label: "Blur" },
-    ],
-  },
+  // displayMask: {
+  //   value: "",
+  //   type: "text",
+  //   label: "Display Mask",
+  //   placeholder: "Mask",
+  // },
+  // applyMaskOn: {
+  //   value: "",
+  //   type: "select",
+  //   dependent: false,
+  //   label: "Apply Mask On",
+  //   options: [
+  //     { value: "change", label: "Change" },
+  //     { value: "blur", label: "Blur" },
+  //   ],
+  // },
   required: { value: false, type: "checkbox", label: "Required" },
   hidden: { value: false, type: "checkbox", label: "Hidden Field" },
   hideLabel: { value: false, type: "checkbox", label: "Hide Label" },
@@ -147,7 +220,7 @@ const commonConditionalSettings = {
 };
 
 const commonValidationSettings = {
-  unique: { value: false, type: "checkbox", label: "Unique Field" },
+  // unique: { value: false, type: "checkbox", label: "Unique Field" },
   errorLabel: {
     value: "",
     type: "text",
@@ -168,6 +241,18 @@ const commonStyleSettings = {
       { value: "%", label: "percentage" },
     ],
   },
+  customClass: {
+    value: "",
+    type: "textArea",
+    label: "Custom class container",
+    placeholder: `bg-slate-600 p-2 m-2`,
+  },
+  customClassEl: {
+    value: "",
+    type: "textArea",
+    label: "Custom class field",
+    placeholder: `text-red-200 border border-yellow-500`,
+  },
 };
 
 const elementsSchema = [
@@ -178,6 +263,7 @@ const elementsSchema = [
     inputType: "text",
     placeholder: "Enter text",
     icon: TextIcon,
+    defaultValue: "",
     displaySettings: {
       ...commonDisplaySettings,
       placeholder: {
@@ -198,9 +284,6 @@ const elementsSchema = [
     },
     styleSettings: {
       ...commonStyleSettings,
-      background: { value: "#fff", type: "color", label: "Background color" },
-      text: { value: "#000", type: "color", label: "Text color" },
-      fontSize: { value: "", type: "text", label: "Font size (px)" },
     },
     conditionalSettings: {
       ...commonConditionalSettings,
@@ -216,6 +299,7 @@ const elementsSchema = [
     inputType: "number",
     placeholder: "",
     icon: KeyboardIcon,
+    defaultValue: 0,
     displaySettings: {
       ...commonDisplaySettings,
       placeholder: {
@@ -236,9 +320,6 @@ const elementsSchema = [
     },
     styleSettings: {
       ...commonStyleSettings,
-      background: { value: "#fff", type: "color", label: "Background color" },
-      text: { value: "#000", type: "color", label: "Text color" },
-      fontSize: { value: "", type: "text", label: "Font size (px)" },
     },
     conditionalSettings: {
       ...commonConditionalSettings,
@@ -254,6 +335,7 @@ const elementsSchema = [
     inputType: "email",
     placeholder: "Enter your email",
     icon: EnvelopeClosedIcon,
+    defaultValue: "",
     displaySettings: {
       ...commonDisplaySettings,
       placeholder: {
@@ -337,6 +419,7 @@ const elementsSchema = [
     label: "Text Area",
     type: "textArea",
     placeholder: "Type something",
+    defaultValue: "",
     icon: TextAlignJustifyIcon,
     displaySettings: {
       ...commonDisplaySettings,
@@ -371,7 +454,17 @@ const elementsSchema = [
       ...commonDisplaySettings,
       placeholder: {
         ...commonDisplaySettings.placeholder,
-        value: "Enter text",
+        value: "Select",
+      },
+      multiple: {
+        value: false,
+        type: "select",
+        label: "Do you want to enable multiple selection?",
+        dependent: false,
+        options: [
+          { value: true, label: "Yes" },
+          { value: false, label: "No" },
+        ],
       },
     },
     validationSettings: {
@@ -423,32 +516,32 @@ const elementsSchema = [
       ...commonJsEvents,
     },
   },
-  {
-    id: "checkboxInput",
-    label: "Checkbox",
-    type: "checkbox",
-    icon: BoxIcon,
-    displaySettings: {
-      ...commonDisplaySettings,
-      hidden: { value: false },
-    },
-    validationSettings: {
-      ...commonValidationSettings,
-      required: { value: false, message: "This field is required" },
-    },
-    styleSettings: {
-      ...commonStyleSettings,
-      inputClass: "border rounded",
-      labelClass: "ml-2 text-sm",
-    },
-    conditionalSettings: {
-      ...commonConditionalSettings,
-    },
-  },
+  // {
+  //   id: "checkboxInput",
+  //   label: "Checkbox",
+  //   type: "checkbox",
+  //   icon: BoxIcon,
+  //   displaySettings: {
+  //     ...commonDisplaySettings,
+  //     hidden: { value: false },
+  //   },
+  //   validationSettings: {
+  //     ...commonValidationSettings,
+  //     required: { value: false, message: "This field is required" },
+  //   },
+  //   styleSettings: {
+  //     ...commonStyleSettings,
+  //     inputClass: "border rounded",
+  //     labelClass: "ml-2 text-sm",
+  //   },
+  //   conditionalSettings: {
+  //     ...commonConditionalSettings,
+  //   },
+  // },
   {
     id: "checkboxGroupInput",
     label: "",
-    subLabel: "Check box group",
+    subLabel: "Check box",
     type: "checkboxGroup",
     icon: LayersIcon,
     displaySettings: {
@@ -487,6 +580,24 @@ const elementsSchema = [
       ...commonJsEvents,
     },
   },
+  {
+    id: "button",
+    label: "Button",
+    type: "button",
+    icon: ButtonIcon,
+    displaySettings: {
+      ...commonDisplaySettings,
+      hidden: { value: false },
+    },
+    styleSettings: {
+      ...commonStyleSettings,
+      // inputClass: "border rounded",
+      // labelClass: "ml-2 text-sm",
+    },
+    customJs: {
+      ...commonJsEvents,
+    },
+  },
 
   {
     id: "container",
@@ -495,7 +606,12 @@ const elementsSchema = [
     heading: "",
     icon: ContainerIcon,
     displaySettings: {
-      heading: { value: "", type: "text", label: "Enter heading" },
+      label: {
+        value: "",
+        defaultValue: "Section",
+        type: "text",
+        label: "Enter heading",
+      },
     },
     styleSettings: {
       cols: { value: 3, type: "number", label: "Number of columns" },
@@ -506,6 +622,8 @@ const elementsSchema = [
     customJs: {
       ...commonJsEvents,
     },
+    zones: {},
+    children: [],
   },
 ];
 

@@ -1,4 +1,6 @@
 import React, { useState, useContext, createContext } from "react";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 import elementsSchema from "./elementSchema";
 import {
@@ -10,7 +12,6 @@ import {
 } from "./components";
 import { DndContext } from "@dnd-kit/core";
 import DroppableArea from "./components/DroppableArea";
-import TestFormPreview from "./components/TestFormPreview";
 
 const FormContext = createContext();
 export const useFormContext = () => useContext(FormContext);
@@ -27,8 +28,8 @@ function App() {
 
     if (over) {
       const draggedElement = elementsSchema.find((el) => el.id === active.id);
+      console.log(draggedElement);
       if (draggedElement) {
-        // unique ID for the new element
         const newElement = {
           ...draggedElement,
           uniqueId: `${draggedElement.id}-${idCounter}`,
@@ -39,7 +40,7 @@ function App() {
           setFormElements((prev) => [...prev, newElement]);
         } else if (over.id.startsWith("container")) {
           const [_, containerId, zoneIndex] = over.id.split("-");
-
+          console.log("dragged", draggedElement);
           setFormElements((prev) =>
             prev.map((el) =>
               el.id === containerId
@@ -57,6 +58,9 @@ function App() {
             )
           );
         }
+
+        setSelectedElement(newElement);
+        console.log("selected element --->", newElement);
       }
     }
   };
@@ -99,9 +103,11 @@ function App() {
         </div>
         {selectedElement && <SettingsModal element={selectedElement} />}
         {showPreview && (
-          <TestFormPreview onClose={() => setShowPreview(false)} />
+          // <TestFormPreview onClose={() => setShowPreview(false)} />
+          <FormPreview onClose={() => setShowPreview(false)} />
         )}
       </div>
+      <ToastContainer />
     </FormContext.Provider>
   );
 }

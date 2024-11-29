@@ -1,5 +1,7 @@
 import { HiQuestionMarkCircle } from "react-icons/hi";
 import { Tooltip } from "../UI";
+import clsx from "clsx";
+import { twMerge } from "tailwind-merge";
 
 const FormElementPreview = ({ settings, element }) => {
   const {
@@ -9,16 +11,23 @@ const FormElementPreview = ({ settings, element }) => {
     hideLabel,
     description,
     descriptionPosition,
-
-    applyMaskOn,
-    displayMask,
     tooltip,
   } = settings.displaySettings;
+
+  const { width, widthUnit, customClass } = settings.styleSettings;
 
   return (
     <div className=" mx-auto p-6 rounded-sm border  shadow-lg relative">
       {/* Content with settings preview */}
-      <div className="relative z-10">
+      <div
+        // className={`relative z-10`}
+        style={{ width: `${width.value}${widthUnit.value}` }}
+        className={twMerge(
+          settings?.styleSettings?.customClass?.value
+          // hiddenClass
+          // disabled.value ? "text-gray-400" : ""
+        )}
+      >
         <div
           className={`${
             descriptionPosition?.value?.toLowerCase() === "top"
@@ -81,6 +90,7 @@ const GenerateElementPreview = ({ element, settings }) => {
     disabled,
     cols,
     rows,
+    multiple = false,
   } = settings.displaySettings;
 
   const { optionList, optionList: { options = "" } = {} } =
@@ -90,12 +100,19 @@ const GenerateElementPreview = ({ element, settings }) => {
 
   switch (element.type) {
     case "input":
+      console.log(
+        "custom classes ->",
+        settings.styleSettings.customClass.value
+      );
       return (
         <div className="flex w-full">
           {prefix.value ? (
             <input
               type={element.inputType || "text"}
-              className={`w-12  bg-stone-50 `}
+              className={clsx(
+                "w-12 bg-stone-50",
+                settings.styleSettings.customClass.value
+              )}
               value={prefix.value}
               readOnly
             />
@@ -108,7 +125,16 @@ const GenerateElementPreview = ({ element, settings }) => {
               <input
                 type={optionList?.value || "date"}
                 required={required?.value || false}
-                className={`border w-full px-2 py-1 rounded ${hiddenClass} disabled:bg-slate-100`}
+                // className={twMerge(
+                //   `border w-full px-2 py-1 rounded ${hiddenClass} disabled:bg-slate-100`,
+                //   settings.styleSettings.customClass.value
+                // )}
+                className={twMerge(
+                  `border w-full px-2 py-1 rounded`,
+                  settings?.styleSettings?.customClassEl?.value,
+                  hiddenClass,
+                  disabled.value ? "text-gray-400" : ""
+                )}
                 autoComplete={autoComplete.value.toString()}
                 autoFocus={initialFocus.value}
                 spellCheck={spellCheck.value}
@@ -120,7 +146,17 @@ const GenerateElementPreview = ({ element, settings }) => {
               type={element.inputType || "text"}
               placeholder={placeholder?.value || "Enter something"}
               required={required?.value || false}
-              className={`border w-full px-2 py-1 rounded ${hiddenClass} disabled:bg-slate-100`}
+              // className={twMerge(
+              //   "border w-full px-2 py-1 rounded disabled:bg-slate-100",
+              //   hiddenClass,
+              //   settings?.styleSettings?.customClass?.value
+              // )}
+              className={twMerge(
+                `border w-full px-2 py-1 rounded`,
+                settings?.styleSettings?.customClassEl?.value,
+                hiddenClass,
+                disabled.value ? "text-gray-400" : ""
+              )}
               autoComplete={autoComplete.value.toString()}
               autoFocus={initialFocus.value}
               spellCheck={spellCheck.value}
@@ -174,7 +210,12 @@ const GenerateElementPreview = ({ element, settings }) => {
           <textarea
             placeholder={placeholder?.value || "Enter something"}
             required={required?.value || false}
-            className={`border w-full h-full  px-2 py-1 rounded ${hiddenClass} disabled:bg-slate-100`}
+            className={twMerge(
+              `border w-full h-full  px-2 py-1 rounded ${hiddenClass} disabled:bg-slate-100`,
+              settings?.styleSettings?.customClassEl?.value,
+              hiddenClass,
+              disabled.value ? "text-gray-400" : ""
+            )}
             autoComplete={autoComplete.value.toString()}
             autoFocus={initialFocus.value}
             spellCheck={spellCheck.value}
@@ -194,6 +235,19 @@ const GenerateElementPreview = ({ element, settings }) => {
         </div>
       );
 
+    case "button":
+      return (
+        <button
+          id={element.uniqueId}
+          className={`border px-2 py-1 rounded ${
+            element.displaySettings.hidden?.value ? "hidden" : ""
+          }`}
+          data-uniqueid={element.uniqueId}
+        >
+          {settings.displaySettings.label.value}
+        </button>
+      );
+
     case "select":
       return (
         <div className="flex flex-1">
@@ -205,7 +259,11 @@ const GenerateElementPreview = ({ element, settings }) => {
               readOnly
             />
           ) : null}
-          <select className={`w-full border px-2 py-1 rounded ${hiddenClass}`}>
+
+          <select
+            className={`w-full border px-2 py-1 rounded ${hiddenClass}`}
+            multiple={multiple.value === "true" ? true : false}
+          >
             {options?.length > 0 ? (
               options.map((opt, id) => (
                 <option value={opt.value} key={id}>

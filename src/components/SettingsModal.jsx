@@ -6,24 +6,86 @@ import styled from "styled-components";
 import { Tooltip } from "../UI";
 import { HiQuestionMarkCircle } from "react-icons/hi";
 import { IoClose } from "react-icons/io5";
-import { PlusIcon } from "@radix-ui/react-icons";
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  PlusIcon,
+} from "@radix-ui/react-icons";
 import Editor from "@monaco-editor/react";
+import { toast } from "react-toastify";
 
 const SettingsModal = ({ element }) => {
-  const { updateElement, setSelectedElement, formElements } = useFormContext();
+  const { updateElement, setSelectedElement, formElements, setFormElements } =
+    useFormContext();
   const [tab, setTab] = useState("display");
   const [settings, setSettings] = useState({ ...element });
 
+  console.log("Element -->", element);
+
+  const initialVisibility = Object.entries(element.customJs).reduce(
+    (acc, [key, value]) => {
+      if (value.content) acc[key] = value.show || false;
+      // false if show is not defined
+      return acc;
+    },
+    {}
+  );
+  console.log(initialVisibility);
+
+  const [visibility, setVisibility] = useState(initialVisibility);
+
+  const toggleVisibility = (key) => {
+    setVisibility((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  //Save settings
   const handleSave = () => {
-    updateElement(settings, element.uniqueId);
+    console.log(settings);
+    if (
+      !settings.displaySettings.label.value &&
+      !settings.displaySettings.label.defaultValue
+    ) {
+      toast.warn("Field Label is missing! Please enter the Field label.");
+      return;
+    } else {
+      console.log("Inside");
+      updateElement(settings, element.uniqueId);
+      setSelectedElement(null);
+    }
+  };
+
+  const handleClose = () => {
+    // in the case of label not set
+    if (!settings.displaySettings.label.value) {
+      const updatedFormElements = formElements.slice(0, -1);
+      setFormElements(updatedFormElements);
+    }
+    //default
+    setSelectedElement(null);
+  };
+
+  const handleDelete = () => {
+    if (!element.uniqueId) {
+      // firstt time case where no unique id is assigned yet
+      toast.error("Element deleted");
+      // Remove latest
+      const updatedFormElements = formElements.slice(0, -1);
+      setFormElements(updatedFormElements);
+    } else {
+      toast.error("Form Field has been deleted");
+      const updatedFormElements = formElements.filter(
+        (el) => el.uniqueId !== element.uniqueId
+      );
+      setFormElements(updatedFormElements);
+    }
+    // Clear the selected element
     setSelectedElement(null);
   };
 
   const handleChange = (section, key, value) => {
-    // console.log(`section - ${section}
-    //   key - ${key}
-    //   value - ${value}`);
-    // console.log(settings);
     setSettings((prev) => ({
       ...prev,
       [section]: {
@@ -117,8 +179,6 @@ const SettingsModal = ({ element }) => {
     });
   };
 
-  // console.log("settings", settings);
-
   const handleAddOption = (settingsType, key) => {
     const newOption = {
       label: "New Option",
@@ -163,6 +223,45 @@ const SettingsModal = ({ element }) => {
       const setting = settings[settingsType][key];
 
       switch (setting.type) {
+        case "button":
+          return (
+            <div
+              key={key}
+              className="flex mt-2 items-center justify-end border-b-slate-200 py-1 pl-2 border-b"
+            >
+              <button
+                className="hover:ring-2 hover:ring-yellow-500 border-2 border-orange-600  text-orange-700 rounded-md px-4 py-[2px]"
+                type={setting.label}
+                onClick={() => setting.action(settings, toast)}
+              >
+                {setting.label}
+              </button>
+            </div>
+          );
+
+        case "info":
+          return (
+            <div key={key}>
+              <button
+                className="mt-4 cursor-pointer hover:ring-2 flex items-center justify-end  hover:ring-yellow-500 text-black rounded-md px-2 py-[2px]"
+                type="button"
+                onClick={() => setting.action(key, toggleVisibility)}
+              >
+                <label>{setting.label}</label>
+                {!visibility[key] ? <ChevronDownIcon /> : <ChevronUpIcon />}
+              </button>
+              <div key={key} className={`flex mt-2 items-center justify-end`}>
+                {visibility[key] && (
+                  <div className="mt-2 w-full p-4 bg-slate-800 border   text-white border-gray-300 rounded-md">
+                    <div
+                      dangerouslySetInnerHTML={{ __html: setting.content }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+
         case "checkbox":
           return (
             <div
@@ -192,34 +291,33 @@ const SettingsModal = ({ element }) => {
               </div>
             </div>
           );
-        // For custom JS now
-        // case "textArea":
-        //   return (
-        //     <div key={key} className="mt-4 border p-4 rounded-md shadow-md">
-        //       <div key={key} className="flex flex-col mt-4">
-        //         <div className="flex gap-1 items-center ">
-        //           <label>{setting.label}</label>
-        //           <Tooltip>
-        //             <Tooltip.Icon>
-        //               <div className=" text-slate-800">
-        //                 <HiQuestionMarkCircle />
-        //               </div>
-        //             </Tooltip.Icon>
-        //             <Tooltip.Content>
-        //               Description to be provided in the schema
-        //             </Tooltip.Content>
-        //           </Tooltip>
-        //         </div>
-        //         <textarea
-        //           className="bg-slate-50 border p-4 font-mono border-slate-500 rounded-md"
-        //           value={setting.value}
-        //           onChange={(e) =>
-        //             handleChange(settingsType, key, e.target.value)
-        //           }
-        //         />
-        //       </div>
-        //     </div>
-        //   );
+        case "textArea":
+          return (
+            <div key={key} className="mt-4 border p-4 rounded-md shadow-md">
+              <div key={key} className="flex flex-col ">
+                <div className="flex gap-1 items-center ">
+                  <label>{setting.label}</label>
+                  <Tooltip>
+                    <Tooltip.Icon>
+                      <div className=" text-slate-800">
+                        <HiQuestionMarkCircle />
+                      </div>
+                    </Tooltip.Icon>
+                    <Tooltip.Content>
+                      Description to be provided in the schema
+                    </Tooltip.Content>
+                  </Tooltip>
+                </div>
+                <textarea
+                  className="bg-slate-50 border p-4 font-mono border-slate-500 rounded-md"
+                  value={setting.value}
+                  onChange={(e) =>
+                    handleChange(settingsType, key, e.target.value)
+                  }
+                />
+              </div>
+            </div>
+          );
 
         case "codeEditor":
           return (
@@ -388,12 +486,12 @@ const SettingsModal = ({ element }) => {
               </div>
               <input
                 type={setting.type}
-                value={setting.value}
+                value={setting?.defaultValue || setting.value}
                 onChange={(e) =>
                   handleChange(settingsType, key, e.target.value)
                 }
                 placeholder={setting?.placeholder || ""}
-                className="w-full outline-none focus:ring-yellow-400 focus:ring-2 ring-offset-2"
+                className="w-full outline-none border px-2 py-[2px] focus:ring-yellow-400 focus:ring-2 ring-offset-2"
               />
             </div>
           );
@@ -422,7 +520,7 @@ const SettingsModal = ({ element }) => {
                   </Tooltip>
                 </div>
                 <select
-                  className="w-full outline-none bg-slate-200 focus:ring-yellow-400 focus:ring-2 ring-offset-2"
+                  className="w-full outline-none px-2 rounded-sm py-[2px] bg-slate-200 focus:ring-yellow-400 focus:ring-2 ring-offset-2"
                   value={setting.value || ""}
                   onChange={(e) =>
                     handleChange(settingsType, key, e.target.value)
@@ -541,15 +639,12 @@ const SettingsModal = ({ element }) => {
   return ReactDOM.createPortal(
     <div className="fixed inset-0 bg-slate-950 bg-opacity-50 flex items-center justify-center">
       <StyledSettingsWrapper>
-        <div className="bg-white py-6 px-8 rounded-lg  shadow-lg  w-[80vw] overflow-y-auto ">
+        <div className="bg-stone-100 py-6 px-8 rounded-lg  shadow-lg  w-[80vw] overflow-y-auto ">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl text-blue-800 font-light capitalize pb-2">
+            <h2 className="text-2xl text-slate-800 font-semibold capitalize pb-2">
               Edit {element?.inputType || element.type} Settings
             </h2>
-            <button
-              onClick={() => setSelectedElement(null)}
-              className="text-4xl text-red-600"
-            >
+            <button onClick={handleClose} className="text-4xl text-red-600">
               <IoClose />
             </button>
           </div>
@@ -562,29 +657,31 @@ const SettingsModal = ({ element }) => {
               <div className="flex bg-slate-100 border-b border-b-slate-300 rounded-t-md   p-4 shadow-md  gap-2">
                 <button
                   onClick={() => setTab("display")}
-                  className={`px-2 py-[4px] rounded-md hover:ring-2 hover:ring-yellow-400 border  ${
+                  className={`px-4 py-2 flex items-center justify-center gap-1 rounded-md hover:ring-2 hover:ring-yellow-400 border  ${
                     tab === "display"
-                      ? " bg-blue-800 text-white"
+                      ? " bg-slate-800 text-white"
                       : "bg-slate-50 text-black"
                   }`}
                 >
-                  Display
+                  <span>Display</span>
                 </button>
-                <button
-                  onClick={() => setTab("validation")}
-                  className={`px-2 py-[4px] rounded-md hover:ring-2 hover:ring-yellow-400 border  ${
-                    tab === "validation"
-                      ? " bg-blue-800 text-white"
-                      : "bg-slate-50 text-black"
-                  }`}
-                >
-                  Validation
-                </button>
+                {element?.validationSettings && (
+                  <button
+                    onClick={() => setTab("validation")}
+                    className={`px-4 py-2 rounded-md hover:ring-2 hover:ring-yellow-400 border  ${
+                      tab === "validation"
+                        ? " bg-slate-800 text-white"
+                        : "bg-slate-50 text-black"
+                    }`}
+                  >
+                    Validation
+                  </button>
+                )}
                 <button
                   onClick={() => setTab("style")}
-                  className={`px-2 py-[4px] rounded-md hover:ring-2 hover:ring-yellow-400 border  ${
+                  className={`px-4 py-2 rounded-md hover:ring-2 hover:ring-yellow-400 border  ${
                     tab === "style"
-                      ? " bg-blue-800 text-white"
+                      ? " bg-slate-800 text-white"
                       : "bg-slate-50 text-black"
                   }`}
                 >
@@ -593,31 +690,32 @@ const SettingsModal = ({ element }) => {
                 {element?.dataSettings && (
                   <button
                     onClick={() => setTab("data")}
-                    className={`px-2 py-[4px] rounded-md hover:ring-2 hover:ring-yellow-400 border  ${
+                    className={`px-4 py-2 rounded-md hover:ring-2 hover:ring-yellow-400 border  ${
                       tab === "data"
-                        ? " bg-blue-800 text-white"
+                        ? " bg-slate-800 text-white"
                         : "bg-slate-50 text-black"
                     }`}
                   >
                     Data
                   </button>
                 )}
-
-                <button
-                  onClick={() => setTab("conditional")}
-                  className={`px-2 py-[4px] rounded-md hover:ring-2 hover:ring-yellow-400 border  ${
-                    tab === "conditional"
-                      ? " bg-blue-800 text-white"
-                      : "bg-slate-50 text-black"
-                  }`}
-                >
-                  Conditional
-                </button>
+                {element?.conditionalSettings && (
+                  <button
+                    onClick={() => setTab("conditional")}
+                    className={`px-4 py-2 rounded-md hover:ring-2 hover:ring-yellow-400 border  ${
+                      tab === "conditional"
+                        ? " bg-slate-800 text-white"
+                        : "bg-slate-50 text-black"
+                    }`}
+                  >
+                    Conditional
+                  </button>
+                )}
                 <button
                   onClick={() => setTab("Custom JS")}
-                  className={`px-2 py-[4px] rounded-md hover:ring-2 hover:ring-yellow-400 border  ${
+                  className={`px-4 py-2 rounded-md hover:ring-2 hover:ring-yellow-400 border  ${
                     tab === "Custom JS"
-                      ? " bg-blue-800 text-white"
+                      ? " bg-slate-800 text-white"
                       : "bg-slate-50 text-black"
                   }`}
                 >
@@ -626,7 +724,10 @@ const SettingsModal = ({ element }) => {
               </div>
               {/* render */}
 
-              <div className="px-4 pt-0 h-[70vh] scrollbar-thumb-rounded-full scrollbar-track-rounded-full scrollbar scrollbar-thumb-slate-700 scrollbar-track-slate-300 overflow-auto   py-4">
+              <div
+                id="control-settings"
+                className="px-4 pt-0 h-[70vh] scrollbar-thumb-rounded-full scrollbar-track-rounded-full scrollbar scrollbar-thumb-slate-700 scrollbar-track-slate-300 overflow-auto py-4"
+              >
                 {tab === "display" ? (
                   renderSettings("displaySettings")
                 ) : tab === "validation" ? (
@@ -763,10 +864,16 @@ const SettingsModal = ({ element }) => {
                   Save
                 </button>
                 <button
-                  onClick={() => setSelectedElement(null)}
+                  onClick={handleClose}
                   className="bg-gray-300 text-black px-4 py-2 rounded ml-2"
                 >
                   Cancel
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="bg-red-600 text-white px-4 py-2 rounded ml-2"
+                >
+                  Delete
                 </button>
               </div>
             </div>
@@ -778,25 +885,8 @@ const SettingsModal = ({ element }) => {
   );
 };
 
-const StyledEditor = styled.div`
-  .editor-container {
-    display: flex;
-    width: 100%;
-    height: 90vh; /* Match the editor height */
-    padding: 0;
-    margin: 0;
-    font-family: inherit; /* Prevent mismatched fonts */
-  }
-
-  .editor-wrapper {
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-  }
-`;
-
 const StyledSettingsWrapper = styled.div`
-  input[type="text"],
+  /* input[type="text"],
   input[type="number"],
   input[type="date"],
   select {
@@ -805,18 +895,16 @@ const StyledSettingsWrapper = styled.div`
     padding: 4px 8px;
     color: #201e1c;
   }
-
+*/
   .item-container {
-    margin-top: 20px;
+    margin-top: 10px;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
   }
 
   label {
-    color: #0a0909;
-    font-size: 18px;
+    /* color: #0a0909; */
+    /* font-size: 18px; */
   }
 `;
 

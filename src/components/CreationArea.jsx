@@ -20,7 +20,6 @@ import {
   arrayMove,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Tooltip } from "../UI";
 
 const SortableItem = ({ id, element }) => {
   const { attributes, listeners, setNodeRef, transform, transition, active } =
@@ -38,65 +37,122 @@ const SortableItem = ({ id, element }) => {
     <div
       ref={setNodeRef}
       style={style}
-      className="relative px-4 py-6 mb-4 bg-white border rounded-lg shadow group"
+      className="bg-white group p-2 rounded-md mt-4"
     >
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute max-w-max top-1 left-2 cursor-grab p-1 text-gray-500 group-hover:text-gray-700"
-        style={{
-          cursor: active ? "grabbing" : "grab",
-        }}
-      >
-        <DragHandleDots2Icon />
+      <div className="flex justify-between w-full">
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab p-1 text-gray-500 group-hover:text-gray-700"
+          style={{
+            cursor: active ? "grabbing" : "grab",
+          }}
+        >
+          <DragHandleDots2Icon />
+        </div>
+        <div className="flex gap-1 opacity-60 px-1 py-1 group-hover:opacity-100 rounded-lg border-slate-300 border">
+          <button
+            onClick={() => setSelectedElement(element)}
+            className="text-blue-500 hover:text-blue-700"
+          >
+            <GearIcon />
+          </button>
+          <button
+            onClick={() => removeElement(element.uniqueId)}
+            className="text-red-500 hover:text-red-700"
+          >
+            <TrashIcon />
+          </button>
+        </div>
       </div>
-
       <FormElement element={element} />
-
-      <div className="absolute top-1 right-2 flex gap-2 opacity-60 px-2 py-1 group-hover:opacity-100 rounded-lg border-slate-300 border">
-        <button
-          onClick={() => setSelectedElement(element)}
-          className="text-blue-500 hover:text-blue-700"
-        >
-          <GearIcon />
-        </button>
-        <button
-          onClick={() => removeElement(element.uniqueId)}
-          className=" text-red-500 hover:text-red-700"
-        >
-          <TrashIcon />
-        </button>
-      </div>
     </div>
   );
 };
 
 const CreationArea = () => {
   const { formElements, setFormElements } = useFormContext();
+  console.log(formElements);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 3,
+        distance: 1,
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        distance: 3,
+        distance: 1,
       },
     }),
-    useSensor(MouseSensor)
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 1,
+      },
+    })
   );
 
   const handleDragEnd = (event) => {
     const { active, over } = event;
-    console.log(active, over);
+
+    if (!over) {
+      console.log("No valid drop target");
+      return;
+    }
+
+    const draggedElement = formElements.find((el) => el.uniqueId === active.id);
+
+    if (!draggedElement) {
+      console.log("Dragged element not found in formElements");
+      return;
+    }
+
+    const newElement = {
+      ...draggedElement,
+      uniqueId: `section-${draggedElement.id}-${Date.now()}`,
+    };
+    // console.log(over.id.startsWith("container"));
+    if (over.id.startsWith("container")) {
+      const parts = over.id.split("-");
+      if (parts.length >= 3) {
+        const [test, containerId, zoneIndex] = parts;
+        console.log("YOLO");
+        // Update the container's zones.
+        setFormElements((prev) =>
+          prev.map((el) => {
+            console.log("--------------->", el, test + "-" + containerId);
+            if (el.uniqueId === test + "-" + containerId) {
+              const updatedZones = { ...(el.zones || {}) };
+              console.log("UPDATED ZONES ->", updatedZones);
+              // Add the new element to the specified zone.
+              updatedZones[zoneIndex] = [
+                ...(updatedZones[zoneIndex] || []),
+                newElement,
+              ];
+              console.log(updatedZones);
+              // Update the children for rendering purposes.
+              const updatedChildren = [...(el.children || []), newElement];
+
+              return { ...el, zones: updatedZones, children: updatedChildren };
+            }
+            return el;
+          })
+        );
+        return;
+      }
+    }
+
+    // Handle reordering if the element is not being dropped into a container.
     if (active.id !== over.id) {
       const oldIndex = formElements.findIndex(
         (el) => el.uniqueId === active.id
       );
       const newIndex = formElements.findIndex((el) => el.uniqueId === over.id);
-      setFormElements(arrayMove(formElements, oldIndex, newIndex));
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reorderedElements = arrayMove(formElements, oldIndex, newIndex);
+        setFormElements(reorderedElements);
+      }
     }
   };
 
@@ -106,7 +162,7 @@ const CreationArea = () => {
       sensors={sensors}
       onDragEnd={handleDragEnd}
     >
-      <main className="flex-1 p-4 bg-slate-200  gap-4">
+      <main className="flex-1 mx-4 my-2 rounded-md shadow-sm p-4 bg-slate-200 ">
         <SortableContext
           items={formElements.map((el) => el.uniqueId)}
           strategy={verticalListSortingStrategy}
